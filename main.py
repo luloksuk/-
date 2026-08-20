@@ -108,6 +108,8 @@ BUTTON_LABELS = {
 }
 
 ADMIN_COMMANDS_HELP = """
+🛠 /panel — открыть админ-панель с инлайн-кнопками (тексты, кнопки, карты, билды, пользователи, промокоды, настройки, админы) — то же самое, что команды ниже, но без набора текста.
+
 🗺 <b>Карты и билды</b>
 /addmap — добавить или обновить карту. Первая строка сообщения — название карты (по нему её ищут пользователи), всё что дальше — содержимое (пики); можно с форматированием, платными эмодзи и фото.
 /delmap Название — удалить карту. Бот покажет её содержимое и попросит подтвердить.
@@ -888,6 +890,8 @@ bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTM
 dp = Dispatcher()
 
 USERS_PAGE_SIZE = 20
+PANEL_ENTRY_PAGE_SIZE = 8
+PANEL_USERS_PAGE_SIZE = 10
 BOT_USERNAME = ""  # заполняется при старте
 
 _pending_broadcast_content: dict[int, Message] = {}
@@ -1049,6 +1053,10 @@ def _extract_name_and_content_html(message: Message, command: str):
 
 async def _is_admin_filter(message: Message):
     return await is_admin(message.from_user.id)
+
+
+async def _is_admin_cb_filter(callback: CallbackQuery):
+    return await is_admin(callback.from_user.id)
 
 
 # ---------- /start и главное меню ----------
@@ -1634,6 +1642,16 @@ async def cmd_stats(message: Message):
 
 # ---------- админ: режим подписки ----------
 
+def _subtoggle_prompt(enable: bool):
+    label = "✅ Включить платный режим" if enable else "✅ Выключить платный режим"
+    question = (
+        "Включить платный режим? Пробный день выдаётся только тем, кто им ещё не пользовался."
+        if enable
+        else "Выключить платный режим? Доступ у всех станет бесплатным."
+    )
+    return label, question
+
+
 @dp.message(Command("subscription"), _is_admin_filter)
 async def cmd_subscription(message: Message):
     args = message.text.split()[1:]
@@ -1646,12 +1664,7 @@ async def cmd_subscription(message: Message):
         return
     enable = args[0] == "on"
     await set_pending_action(message.from_user.id, "subtoggle", {"enabled": "1" if enable else "0"})
-    label = "✅ Включить платный режим" if enable else "✅ Выключить платный режим"
-    question = (
-        "Включить платный режим? Пробный день выдаётся только тем, кто им ещё не пользовался."
-        if enable
-        else "Выключить платный режим? Доступ у всех станет бесплатным."
-    )
+    label, question = _subtoggle_prompt(enable)
     await reply(message, question, reply_markup=action_confirm_kb(label, "❌ Отменить"))
 
 
@@ -1664,6 +1677,16 @@ async def _apply_subtoggle(admin_id, payload):
 
 
 # ---------- админ: режим техработ ----------
+
+def _maint_prompt(enable: bool):
+    label = "🛠 Начать техработы" if enable else "✅ Завершить техработы"
+    question = (
+        "Включить режим техработ? Пока он включён, время подписки у пользователей не будет расходоваться."
+        if enable
+        else "Завершить техработы? Всем пользователям продлим подписку на время, пока шли техработы."
+    )
+    return label, question
+
 
 @dp.message(Command("maintenance"), _is_admin_filter)
 async def cmd_maintenance(message: Message):
@@ -1683,12 +1706,7 @@ async def cmd_maintenance(message: Message):
         await reply(message, "Техработы и так не идут.")
         return
     await set_pending_action(message.from_user.id, "maintenance_toggle", {"enabled": enable})
-    label = "🛠 Начать техработы" if enable else "✅ Завершить техработы"
-    question = (
-        "Включить режим техработ? Пока он включён, время подписки у пользователей не будет расходоваться."
-        if enable
-        else "Завершить техработы? Всем пользователям продлим подписку на время, пока шли техработы."
-    )
+    label, question = _maint_prompt(enable)
     await reply(message, question, reply_markup=action_confirm_kb(label, "❌ Отменить"))
 
 
@@ -1759,20 +1777,22 @@ async def _apply_addsuball(admin_id, payload):
 
 # ---------- админ: промокоды ----------
 
+ADDPROMO_PROMPT = (
+    "Пришли 5 строк:\n"
+    "КОД\n"
+    "тип (percent или days)\n"
+    "значение (число: для percent — процент скидки, для days — дней бесплатно)\n"
+    "лимит использований\n"
+    "период \"остывания\" в днях (после использования этого кода — сколько дней нельзя "
+    "использовать другой промокод)\n\n"
+    "Например:\nSALE20\npercent\n20\n100\n0"
+)
+
+
 @dp.message(Command("addpromo"), _is_admin_filter)
 async def cmd_addpromo(message: Message):
     await set_pending_input(message.from_user.id, "args:addpromo")
-    await reply(
-        message,
-        "Пришли 5 строк:\n"
-        "КОД\n"
-        "тип (percent или days)\n"
-        "значение (число: для percent — процент скидки, для days — дней бесплатно)\n"
-        "лимит использований\n"
-        "период \"остывания\" в днях (после использования этого кода — сколько дней нельзя "
-        "использовать другой промокод)\n\n"
-        "Например:\nSALE20\npercent\n20\n100\n0",
-    )
+    await reply(message, ADDPROMO_PROMPT)
 
 
 async def _awaiting_args_addpromo(message: Message):
@@ -2095,6 +2115,511 @@ for _key, (_cmd, _prompt, _default) in EDITABLE_TEXTS.items():
 
 for _key, (_cmd, _prompt, _default) in BUTTON_LABELS.items():
     _make_editable_handlers(_key, _cmd, _prompt, "setbtn", "кнопка", allow_photo=False, allow_icon=True)
+
+
+# ---------- админ: inline-панель ----------
+
+TEXT_DISPLAY_NAMES = {
+    "welcome_text": "👋 Приветствие (/start)",
+    "help_text": "ℹ️ Как пользоваться",
+    "no_access_text": "🔒 Нет подписки",
+    "search_prompt_text": "🔍 Подсказка поиска",
+    "not_found_text": "🤔 Не найдено",
+    "sub_active_text": "💎 Статус подписки",
+    "reminder_text": "⏰ Напоминание",
+    "payment_success_text": "✅ Успешная оплата",
+    "referral_text": "👥 Мои рефералы",
+    "purchase_confirm_text": "💳 Подтверждение покупки",
+}
+
+BUTTON_DISPLAY_NAMES = {
+    "btn_search": "🔍 Поиск",
+    "btn_subscription": "💎 Подписка",
+    "btn_referrals": "👥 Рефералы",
+    "btn_help": "ℹ️ Помощь",
+    "btn_promo": "🎟 Промокод",
+}
+
+ENTRY_TABLES = {
+    "maps": {"title": "🗺 Карты", "icon": "🗺", "empty": "Пока нет ни одной карты.", "add_cmd": "/addmap"},
+    "builds": {"title": "⚔️ Билды", "icon": "⚔️", "empty": "Пока нет ни одного билда.", "add_cmd": "/addbuild"},
+}
+
+
+def panel_main_kb():
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📝 Тексты", callback_data="panel:texts", style="success")
+    kb.button(text="🔘 Кнопки", callback_data="panel:buttons", style="success")
+    kb.button(text="🗺 Карты", callback_data="panel:list:maps:0", style="success")
+    kb.button(text="⚔️ Билды", callback_data="panel:list:builds:0", style="success")
+    kb.button(text="👤 Пользователи", callback_data="panel:userspage:0", style="success")
+    kb.button(text="🎟 Промокоды", callback_data="panel:promos", style="success")
+    kb.button(text="⚙️ Настройки", callback_data="panel:settings", style="success")
+    kb.button(text="👮 Админы", callback_data="panel:admins", style="success")
+    kb.adjust(2)
+    return kb.as_markup()
+
+
+async def _panel_main_screen():
+    return "🛠 Админ-панель. Выбери раздел:", panel_main_kb()
+
+
+@dp.message(Command("panel"), _is_admin_filter)
+async def cmd_panel(message: Message):
+    text, markup = await _panel_main_screen()
+    await reply(message, text, reply_markup=markup)
+
+
+@dp.callback_query(F.data == "panel:main", _is_admin_cb_filter)
+async def cb_panel_main(callback: CallbackQuery):
+    text, markup = await _panel_main_screen()
+    await reply(callback, text, reply_markup=markup)
+    await callback.answer()
+
+
+# ---- тексты ----
+
+def panel_texts_kb():
+    kb = InlineKeyboardBuilder()
+    for key in EDITABLE_TEXTS:
+        kb.button(text=TEXT_DISPLAY_NAMES.get(key, key), callback_data=f"panel:text:{key}", style="success")
+    kb.adjust(1)
+    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    return kb.as_markup()
+
+
+def panel_text_view_kb(key):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✏️ Изменить", callback_data=f"panel:textedit:{key}", style="success")
+    kb.button(text="◀️ К списку", callback_data="panel:texts", style="primary")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+@dp.callback_query(F.data == "panel:texts", _is_admin_cb_filter)
+async def cb_panel_texts(callback: CallbackQuery):
+    await reply(callback, "📝 Редактируемые тексты — выбери, что изменить:", reply_markup=panel_texts_kb())
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:text:"), _is_admin_cb_filter)
+async def cb_panel_text_view(callback: CallbackQuery):
+    key = callback.data.split(":", 2)[2]
+    if key not in EDITABLE_TEXTS:
+        await callback.answer()
+        return
+    value = await get_setting(key)
+    photo = await get_setting_photo(key)
+    name = TEXT_DISPLAY_NAMES.get(key, key)
+    await reply(
+        callback, f"{name}:\n\n{value}", photo_file_id=photo, reply_markup=panel_text_view_kb(key)
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:textedit:"), _is_admin_cb_filter)
+async def cb_panel_text_edit(callback: CallbackQuery):
+    key = callback.data.split(":", 2)[2]
+    if key not in EDITABLE_TEXTS:
+        await callback.answer()
+        return
+    _cmd, prompt, _default = EDITABLE_TEXTS[key]
+    await set_pending_input(callback.from_user.id, f"settext:{key}")
+    await reply(callback, prompt)
+    await callback.answer()
+
+
+# ---- кнопки меню ----
+
+def panel_buttons_kb():
+    kb = InlineKeyboardBuilder()
+    for key in BUTTON_LABELS:
+        kb.button(text=BUTTON_DISPLAY_NAMES.get(key, key), callback_data=f"panel:btn:{key}", style="success")
+    kb.adjust(1)
+    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    return kb.as_markup()
+
+
+def panel_btn_view_kb(key):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✏️ Изменить", callback_data=f"panel:btnedit:{key}", style="success")
+    kb.button(text="◀️ К списку", callback_data="panel:buttons", style="primary")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+@dp.callback_query(F.data == "panel:buttons", _is_admin_cb_filter)
+async def cb_panel_buttons(callback: CallbackQuery):
+    await reply(
+        callback, "🔘 Названия кнопок меню — выбери, что изменить:", reply_markup=panel_buttons_kb()
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:btn:"), _is_admin_cb_filter)
+async def cb_panel_btn_view(callback: CallbackQuery):
+    key = callback.data.split(":", 2)[2]
+    if key not in BUTTON_LABELS:
+        await callback.answer()
+        return
+    value = await get_setting(key)
+    name = BUTTON_DISPLAY_NAMES.get(key, key)
+    await reply(
+        callback, f"Текущее название кнопки «{name}»:\n\n{value}", reply_markup=panel_btn_view_kb(key)
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:btnedit:"), _is_admin_cb_filter)
+async def cb_panel_btn_edit(callback: CallbackQuery):
+    key = callback.data.split(":", 2)[2]
+    if key not in BUTTON_LABELS:
+        await callback.answer()
+        return
+    _cmd, prompt, _default = BUTTON_LABELS[key]
+    await set_pending_input(callback.from_user.id, f"setbtn:{key}")
+    await reply(callback, prompt)
+    await callback.answer()
+
+
+# ---- карты / билды ----
+
+async def _panel_entry_list_screen(table: str, offset: int):
+    names = await list_entry_names(table)
+    total = len(names)
+    info = ENTRY_TABLES[table]
+    page = names[offset: offset + PANEL_ENTRY_PAGE_SIZE]
+
+    kb = InlineKeyboardBuilder()
+    for i, name in enumerate(page):
+        abs_idx = offset + i
+        label = name if len(name) <= 40 else name[:37] + "…"
+        kb.button(text=label, callback_data=f"panel:item:{table}:{abs_idx}", style="success")
+    kb.adjust(1)
+
+    nav = []
+    if offset > 0:
+        nav.append(InlineKeyboardButton(
+            text="◀️", callback_data=f"panel:list:{table}:{max(0, offset - PANEL_ENTRY_PAGE_SIZE)}",
+            style="success",
+        ))
+    if offset + PANEL_ENTRY_PAGE_SIZE < total:
+        nav.append(InlineKeyboardButton(
+            text="▶️", callback_data=f"panel:list:{table}:{offset + PANEL_ENTRY_PAGE_SIZE}",
+            style="success",
+        ))
+    if nav:
+        kb.row(*nav)
+    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+
+    if not total:
+        text = f"{info['empty']} Добавить можно командой {info['add_cmd']}."
+    else:
+        text = f"{info['title']} — всего {total}.\nВыбери запись, чтобы посмотреть или удалить."
+    return text, kb.as_markup()
+
+
+@dp.callback_query(F.data.startswith("panel:list:"), _is_admin_cb_filter)
+async def cb_panel_list(callback: CallbackQuery):
+    _, _, table, offset_s = callback.data.split(":")
+    text, markup = await _panel_entry_list_screen(table, int(offset_s))
+    await reply(callback, text, reply_markup=markup)
+    await callback.answer()
+
+
+def panel_item_view_kb(table, idx):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🗑 Удалить", callback_data=f"panel:itemdel:{table}:{idx}", style="danger")
+    kb.button(text="◀️ К списку", callback_data=f"panel:list:{table}:0", style="primary")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+@dp.callback_query(F.data.startswith("panel:item:"), _is_admin_cb_filter)
+async def cb_panel_item(callback: CallbackQuery):
+    _, _, table, idx_s = callback.data.split(":")
+    idx = int(idx_s)
+    names = await list_entry_names(table)
+    if idx >= len(names):
+        await callback.answer("Запись больше не существует", show_alert=True)
+        return
+    entry = await find_entry(table, names[idx])
+    if not entry:
+        await callback.answer("Запись больше не существует", show_alert=True)
+        return
+    icon = ENTRY_TABLES[table]["icon"]
+    await reply(
+        callback,
+        f"{icon} <b>{entry['name']}</b>\n\n{entry['content']}",
+        photo_file_id=entry["photo_file_id"],
+        reply_markup=panel_item_view_kb(table, idx),
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:itemdel:"), _is_admin_cb_filter)
+async def cb_panel_itemdel(callback: CallbackQuery):
+    _, _, table, idx_s = callback.data.split(":")
+    idx = int(idx_s)
+    names = await list_entry_names(table)
+    if idx >= len(names):
+        await callback.answer("Запись больше не существует", show_alert=True)
+        return
+    entry = await find_entry(table, names[idx])
+    if not entry:
+        await callback.answer("Запись больше не существует", show_alert=True)
+        return
+    action_type = "delmap" if table == "maps" else "delbuild"
+    label = "карту" if table == "maps" else "билд"
+    await set_pending_action(
+        callback.from_user.id, action_type, {"search_key": entry["search_key"], "name": entry["name"]}
+    )
+    await reply(
+        callback,
+        f"🗑 Удалить эту запись — {label} «{entry['name']}»?\n\n{entry['content']}",
+        photo_file_id=entry["photo_file_id"],
+        reply_markup=action_confirm_kb("🗑 Удалить", "↩️ Оставить"),
+    )
+    await callback.answer()
+
+
+# ---- пользователи ----
+
+def panel_users_list_kb(users, offset, total):
+    kb = InlineKeyboardBuilder()
+    for u in users:
+        label = f"👤 {u['user_id']}" + (f" @{u['username']}" if u["username"] else "")
+        kb.button(text=label, callback_data=f"panel:user:{u['user_id']}", style="success")
+    kb.adjust(1)
+
+    nav = []
+    if offset > 0:
+        nav.append(InlineKeyboardButton(
+            text="◀️", callback_data=f"panel:userspage:{max(0, offset - PANEL_USERS_PAGE_SIZE)}",
+            style="success",
+        ))
+    if offset + PANEL_USERS_PAGE_SIZE < total:
+        nav.append(InlineKeyboardButton(
+            text="▶️", callback_data=f"panel:userspage:{offset + PANEL_USERS_PAGE_SIZE}",
+            style="success",
+        ))
+    if nav:
+        kb.row(*nav)
+    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    return kb.as_markup()
+
+
+@dp.callback_query(F.data.startswith("panel:userspage:"), _is_admin_cb_filter)
+async def cb_panel_userspage(callback: CallbackQuery):
+    offset = int(callback.data.split(":")[2])
+    total = await count_users()
+    users = await list_users(offset, PANEL_USERS_PAGE_SIZE)
+    text = (
+        f"👤 Пользователи — всего {total}.\nВыбери, чтобы посмотреть подробнее."
+        if users
+        else "Пока нет пользователей."
+    )
+    await reply(callback, text, reply_markup=panel_users_list_kb(users, offset, total))
+    await callback.answer()
+
+
+def panel_user_card_kb(user_id, has_sub):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="➕ Выдать 30 дней", callback_data=f"panel:usersub:{user_id}:30", style="success")
+    if has_sub:
+        kb.button(text="🗑 Снять подписку", callback_data=f"panel:userdelsub:{user_id}", style="danger")
+    kb.button(text="◀️ К списку", callback_data="panel:userspage:0", style="primary")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+@dp.callback_query(F.data.startswith("panel:user:"), _is_admin_cb_filter)
+async def cb_panel_user_card(callback: CallbackQuery):
+    user_id = int(callback.data.split(":")[2])
+    user = await get_user(user_id)
+    if not user:
+        await callback.answer("Пользователь не найден", show_alert=True)
+        return
+    await reply(
+        callback, _fmt_user_card(user), reply_markup=panel_user_card_kb(user_id, bool(user["sub_until"]))
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:usersub:"), _is_admin_cb_filter)
+async def cb_panel_usersub(callback: CallbackQuery):
+    _, _, user_id_s, days_s = callback.data.split(":")
+    await _process_addsub(callback, int(user_id_s), int(days_s))
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:userdelsub:"), _is_admin_cb_filter)
+async def cb_panel_userdelsub(callback: CallbackQuery):
+    user_id = int(callback.data.split(":")[2])
+    await _process_delsub(callback, user_id)
+    await callback.answer()
+
+
+# ---- промокоды ----
+
+async def _panel_promos_screen():
+    promos = await list_promos()
+    kb = InlineKeyboardBuilder()
+    for i, p in enumerate(promos):
+        type_label = "%" if p["type"] == "percent" else "дн."
+        label = f"{p['code']} ({p['value']}{type_label}, {p['uses_count']}/{p['uses_limit']})"
+        kb.button(text=label[:60], callback_data=f"panel:promoitem:{i}", style="success")
+    kb.adjust(1)
+    kb.row(InlineKeyboardButton(text="➕ Добавить промокод", callback_data="panel:promoadd", style="success"))
+    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    text = "🎟 Промокоды — выбери, чтобы посмотреть или удалить:" if promos else "Промокодов пока нет."
+    return text, kb.as_markup()
+
+
+@dp.callback_query(F.data == "panel:promos", _is_admin_cb_filter)
+async def cb_panel_promos(callback: CallbackQuery):
+    text, markup = await _panel_promos_screen()
+    await reply(callback, text, reply_markup=markup)
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "panel:promoadd", _is_admin_cb_filter)
+async def cb_panel_promoadd(callback: CallbackQuery):
+    await set_pending_input(callback.from_user.id, "args:addpromo")
+    await reply(callback, ADDPROMO_PROMPT)
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:promoitem:"), _is_admin_cb_filter)
+async def cb_panel_promoitem(callback: CallbackQuery):
+    idx = int(callback.data.split(":")[2])
+    promos = await list_promos()
+    if idx >= len(promos):
+        await callback.answer("Промокод больше не существует", show_alert=True)
+        return
+    p = promos[idx]
+    type_label = "скидка %" if p["type"] == "percent" else "дней бесплатно"
+    text = (
+        f"🎟 {p['code']}\nТип: {type_label}\nЗначение: {p['value']}\n"
+        f"Использован: {p['uses_count']}/{p['uses_limit']}\nОстывание: {p['cooldown_days']} дн."
+    )
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🗑 Удалить", callback_data=f"panel:promodel:{idx}", style="danger")
+    kb.button(text="◀️ К списку", callback_data="panel:promos", style="primary")
+    kb.adjust(1)
+    await reply(callback, text, reply_markup=kb.as_markup())
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:promodel:"), _is_admin_cb_filter)
+async def cb_panel_promodel(callback: CallbackQuery):
+    idx = int(callback.data.split(":")[2])
+    promos = await list_promos()
+    if idx >= len(promos):
+        await callback.answer("Промокод больше не существует", show_alert=True)
+        return
+    code = promos[idx]["code"]
+    await set_pending_action(callback.from_user.id, "delpromo", {"code": code})
+    await reply(
+        callback, f"Удалить промокод «{code}»?", reply_markup=action_confirm_kb("🗑 Удалить", "↩️ Оставить")
+    )
+    await callback.answer()
+
+
+# ---- настройки ----
+
+async def _panel_settings_screen():
+    sub_on = await is_subscription_enabled()
+    maint_on = await is_maintenance_mode()
+    text = (
+        "⚙️ Настройки\n\n"
+        f"Платный режим: {'включён' if sub_on else 'выключен (бесплатно всем)'}\n"
+        f"Техработы: {'идут' if maint_on else 'не идут'}"
+    )
+    kb = InlineKeyboardBuilder()
+    kb.button(
+        text=("🔴 Выключить платный режим" if sub_on else "🟢 Включить платный режим"),
+        callback_data=f"panel:subtoggle:{0 if sub_on else 1}",
+        style="success",
+    )
+    kb.button(
+        text=("✅ Завершить техработы" if maint_on else "🛠 Начать техработы"),
+        callback_data=f"panel:maint:{0 if maint_on else 1}",
+        style="success",
+    )
+    kb.adjust(1)
+    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    return text, kb.as_markup()
+
+
+@dp.callback_query(F.data == "panel:settings", _is_admin_cb_filter)
+async def cb_panel_settings(callback: CallbackQuery):
+    text, markup = await _panel_settings_screen()
+    await reply(callback, text, reply_markup=markup)
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:subtoggle:"), _is_admin_cb_filter)
+async def cb_panel_subtoggle(callback: CallbackQuery):
+    enable = callback.data.split(":")[2] == "1"
+    await set_pending_action(callback.from_user.id, "subtoggle", {"enabled": "1" if enable else "0"})
+    label, question = _subtoggle_prompt(enable)
+    await reply(callback, question, reply_markup=action_confirm_kb(label, "❌ Отменить"))
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:maint:"), _is_admin_cb_filter)
+async def cb_panel_maint(callback: CallbackQuery):
+    enable = callback.data.split(":")[2] == "1"
+    if enable and await is_maintenance_mode():
+        await callback.answer("Техработы уже идут", show_alert=True)
+        return
+    if not enable and not await is_maintenance_mode():
+        await callback.answer("Техработы и так не идут", show_alert=True)
+        return
+    await set_pending_action(callback.from_user.id, "maintenance_toggle", {"enabled": enable})
+    label, question = _maint_prompt(enable)
+    await reply(callback, question, reply_markup=action_confirm_kb(label, "❌ Отменить"))
+    await callback.answer()
+
+
+# ---- админы ----
+
+def panel_admins_kb(admin_ids):
+    kb = InlineKeyboardBuilder()
+    for aid in admin_ids:
+        if aid == MAIN_ADMIN_ID:
+            continue
+        kb.button(text=f"🗑 {aid}", callback_data=f"panel:admindel:{aid}", style="danger")
+    kb.adjust(1)
+    kb.row(InlineKeyboardButton(text="➕ Добавить админа", callback_data="panel:adminadd", style="success"))
+    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    return kb.as_markup()
+
+
+@dp.callback_query(F.data == "panel:admins", _is_admin_cb_filter)
+async def cb_panel_admins(callback: CallbackQuery):
+    admin_ids = sorted(await get_all_admin_ids())
+    lines = ["👮 Админы:\n"]
+    for aid in admin_ids:
+        tag = " (главный)" if aid == MAIN_ADMIN_ID else ""
+        lines.append(f"{aid}{tag}")
+    await reply(callback, "\n".join(lines), reply_markup=panel_admins_kb(admin_ids))
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "panel:adminadd", _is_admin_cb_filter)
+async def cb_panel_adminadd(callback: CallbackQuery):
+    await set_pending_input(callback.from_user.id, "args:addadmin")
+    await reply(callback, "Пришли user_id человека, которого нужно сделать админом.")
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("panel:admindel:"), _is_admin_cb_filter)
+async def cb_panel_admindel(callback: CallbackQuery):
+    user_id = int(callback.data.split(":")[2])
+    await _process_deladmin(callback, user_id)
+    await callback.answer()
 
 
 # ---------- админ: справка по командам ----------
