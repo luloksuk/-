@@ -135,6 +135,10 @@ ADMIN_COMMANDS_HELP = """
 /export — CSV-файл со всеми пользователями.
 /growth — картинка-график роста числа пользователей.
 
+🗄 <b>Резервная копия базы</b>
+/exportdb — выгрузить весь файл базы данных (пользователи, карты, билды, тексты, кнопки, промокоды, настройки — всё).
+/importdb — пришли файл из /exportdb документом с подписью /importdb, чтобы полностью заменить текущую базу данных (с подтверждением, действие необратимо).
+
 ⚙️ <b>Настройки бота</b>
 /subscription on|off — вкл/выкл платный режим (off = бесплатно всем, для беты; пробный день не выдаётся повторно тем, кто уже им пользовался).
 /maintenance on|off — режим техработ: пока включён, время подписки не расходуется; при выключении бот сам продлевает всем на то время, что шли работы.
@@ -1923,6 +1927,74 @@ async def cmd_growth(message: Message):
 
     photo = BufferedInputFile(buf.read(), filename="growth.png")
     await message.answer_photo(photo, caption=f"Всего пользователей: {total}")
+
+
+# ---------- админ: резервная копия базы данных ----------
+
+DB_IMPORT_TMP_PATH = DATABASE_PATH + ".import_tmp"
+
+
+@dp.message(Command("exportdb"), _is_admin_filter)
+async def cmd_exportdb(message: Message):
+    from aiogram.types import FSInputFile
+
+    if not os.path.exists(DATABASE_PATH):
+        await reply(message, "Файл базы данных не найден.")
+        return
+    ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    await message.answer_document(
+        FSInputFile(DATABASE_PATH, filename=f"backup_{ts}.db"),
+        caption="📦 Полная резервная копия базы данных (SQLite).\n"
+        "Содержит всех пользователей, карты, билды, тексты, кнопки, промокоды и настройки.",
+    )
+
+
+@dp.message(Command("importdb"), _is_admin_filter)
+async def cmd_importdb(message: Message):
+    if not message.document:
+        await reply(
+            message,
+            "Пришли файл базы (.db), полученный через /exportdb, как документ с подписью "
+            "/importdb.\n\n⚠️ Это полностью заменит текущую базу данных бота — отменить действие "
+            "будет нельзя.",
+        )
+        return
+
+    header = None
+    try:
+        await bot.download(message.document, destination=DB_IMPORT_TMP_PATH)
+        with open(DB_IMPORT_TMP_PATH, "rb") as f:
+            header = f.read(16)
+    except Exception:
+        header = None
+
+    if header != b"SQLite format 3\x00":
+        if os.path.exists(DB_IMPORT_TMP_PATH):
+            os.remove(DB_IMPORT_TMP_PATH)
+        await reply(
+            message,
+            "❌ Это не похоже на файл базы SQLite. Пришли файл, полученный через /exportdb.",
+        )
+        return
+
+    await set_pending_action(message.from_user.id, "importdb", {"tmp_path": DB_IMPORT_TMP_PATH})
+    await reply(
+        message,
+        "⚠️ Заменить текущую базу данных содержимым присланного файла?\n"
+        "Все текущие пользователи, карты, билды, тексты, кнопки и настройки будут заменены "
+        "данными из бэкапа. Это действие необратимо.",
+        reply_markup=action_confirm_kb("✅ Заменить", "❌ Отменить"),
+    )
+
+
+@register_apply("importdb")
+async def _apply_importdb(admin_id, payload):
+    tmp_path = payload["tmp_path"]
+    if not os.path.exists(tmp_path):
+        return "❌ Временный файл бэкапа не найден, попробуй снова через /importdb."
+    os.replace(tmp_path, DATABASE_PATH)
+    await init_db()
+    return "✅ База данных восстановлена из присланного файла."
 
 
 # ---------- админ: редактируемые тексты и кнопки (одна команда на каждую) ----------
