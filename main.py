@@ -1374,7 +1374,6 @@ async def _awaiting_findtype(message: Message):
 async def receive_findtype_query(message: Message):
     pending = await get_pending_input(message.from_user.id)
     table = pending.split(":", 1)[1]
-    await clear_pending_input(message.from_user.id)
 
     query = message.text.strip()
     if not query or query.startswith("/"):
@@ -1388,6 +1387,7 @@ async def receive_findtype_query(message: Message):
         await start_trial(user_id)
 
     if not await has_access(user_id):
+        await clear_pending_input(user_id)
         text = await get_setting("no_access_text")
         photo = await get_setting_photo("no_access_text")
         await reply(message, text, photo_file_id=photo, reply_markup=await buy_kb())
@@ -1395,11 +1395,14 @@ async def receive_findtype_query(message: Message):
 
     entry = await find_entry(table, query)
     if not entry:
+        # Не сбрасываем pending_input — пользователь может сразу написать
+        # другое имя, не нажимая заново кнопку категории.
         text = await get_setting("not_found_text")
         photo = await get_setting_photo("not_found_text")
         await reply(message, text, photo_file_id=photo, reply_markup=back_to_search_kb())
         return
 
+    await clear_pending_input(user_id)
     await log_query(FIND_TYPE_LOG[table], entry["name"])
     await reply(
         message,
