@@ -107,8 +107,103 @@ BUTTON_LABELS = {
     "btn_promo": ("setbtnpromo", 'Пришли новое название кнопки "Ввести промокод".', "🎟 Ввести промокод"),
 }
 
+# ---- бойцы и их контры (предзаполняется в базу при первом запуске) ----
+
+DEFAULT_COUNTERS = {
+    "Шелли": ["Вольт", "Отис", "Гейл"],
+    "Кольт": ["Мина", "Сту", "Брок"],
+    "Нита": ["Грифф", "Дамиан", "Отис"],
+    "Булл": ["Вольт", "Грифф", "Мина"],
+    "Брок": ["Сту", "Пирс", "Мортис"],
+    "Эль Примо": ["Вольт", "Гейл", "Эмз"],
+    "Барли": ["Эдгар", "Мортис", "Мико"],
+    "Поко": ["Отис", "Эдгар", "Грифф"],
+    "Роза": ["Отис", "Гейл", "Эмз"],
+    "Рико": ["Эдгар", "Мортис", "Брок"],
+    "Джесси": ["Брок", "Мортис", "Эдгар"],
+    "Дэррил": ["Гейл", "Отис", "Коллет"],
+    "Пенни": ["Брок", "Леон"],
+    "Карл": ["Гейл", "Отис", "Чарли"],
+    "8-БИТ": ["Пирс", "Бо"],
+    "Джекки": ["Гейл", "Эмз", "Коллет"],
+    "Гас": ["Сту", "Леон", "Мортис"],
+    "Бо": ["Сту", "Кольт", "Болт"],
+    "Тик": ["Мортис", "Мико", "Эдгар"],
+    "Эмз": ["Ворон", "Мортис", "Гэйл"],
+    "Сту": ["Гавс", "Чарли", "Мэг"],
+    "Пайпер": ["Мортис", "Леон", "Эдгар"],
+    "Пэм": ["Эдгар", "Коллет", "Гейл"],
+    "Фрэнк": ["Отис", "Вольт", "Эдгар"],
+    "Биби": ["Вольт", "Булл", "Отис"],
+    "Беа": ["Мортис", "Эдгар", "Леон"],
+    "Нани": ["Макс", "Брок", "Менди"],
+    "Эдгар": ["Сту", "Перл", "Отис"],
+    "Грифф": ["Сту", "Макс", "Отис"],
+    "Гром": ["Эдгар", "Леон", "Мортис"],
+    "Бонни": ["Брок", "Нани", "Анджело"],
+    "Гэйл": ["Отис", "Лу", "Вольт"],
+    "Колетт": ["Сту", "Отис", "Грифф"],
+    "Белль": ["Пайпер", "Леон", "Байрон"],
+    "Эш": ["Гейл", "Эмз", "Коллет"],
+    "Лола": ["Джесси", "Скуик", "Пенни"],
+    "Сэм": ["Вольт", "Отис", "Шелли"],
+    "Мэнди": ["Макс", "Брок", "Болт"],
+    "Мэйси": ["Макс", "Сту", "Мипл"],
+    "Хэнк": ["Корделиус", "Вольт", "Р-Т"],
+    "Перл": ["Грифф", "Отис", "Коллет"],
+    "Ларри и Лори": ["Мико", "Мортис", "Эдгар"],
+    "Анджело": ["Гавс", "Менди", "Чарли"],
+    "Джуджу": ["Мортис", "Эдгар", "Мико"],
+    "Даг": ["Гейл", "Луми", "Отис"],
+    "Чарли": ["Скуик", "Спраут", "Амбер"],
+    "Мортис": ["Вольт", "Грифф", "Отис"],
+    "Тара": ["Джанет", "Бастер", "Сенди"],
+    "Джин": ["Чарли", "Ева", "Мистер П"],
+    "Макс": ["Лола", "Ворон", "Гейл"],
+    "Мистер П": ["Эдгар", "Мортис", "Карл"],
+    "Спраут": ["Мико", "Эдгар", "Мортис"],
+    "Байрон": ["Мортис", "Эдгар", "Мико"],
+    "Сквик": ["Мортис", "Леон", "Эдгар"],
+    "Лу": ["Мэг", "Карл", "Поко (с гаджетом катарсис)"],
+    "Базз": ["Мина", "Корделиус", "Чарли"],
+    "Фэнг": ["Чарли", "Отис", "Лу"],
+    "Ева": ["Брок", "Тик", "Амбер"],
+    "Гавс": ["Мортис", "Эдгар", "Карл"],
+    "Корделиус": ["Луми", "Мэг", "Бастер"],
+    "Честер": ["Сириус", "Чарли", "Гавс"],
+    "Мико": ["Корделиус", "Чарли", "Отис"],
+    "Мелоди": ["Амбер", "Спайк", "Честер"],
+    "Лили": ["Отис", "Перл", "Честер"],
+    "Кит": ["Шелли", "Вольт", "Мэг"],
+    "Драко": ["Спайк", "Эмз", "Луми"],
+    "Берри": ["Эдгар", "Мико", "Мортис"],
+    "Кенджи": ["Отис", "Корделиус", "Грифф"],
+    "Мо": ["Мипл", "Вольт", "Отис"],
+    "Грей": ["Эдгар", "Мортис", "Мико"],
+    "Виллоу": ["Мико", "Эдгар", "Мортис"],
+    "Отис": ["Сту", "Поко (с гаджетом катарсис)", "Диномайк"],
+    "Бастер": ["Базз", "Дерилл", "Демиан"],
+    "Р-Т": ["Брок", "Пайпер", "Сту"],
+    "Сириус": ["Пенни", "Эмз", "Мортис"],
+    "Нори": ["Отис", "Грифф", "Шелли"],
+    "Мина": ["Отис", "Нита", "Чарли"],
+    "Люми": ["Сту", "Кольт", "Пирс"],
+    "Пирс": ["Мортис", "Эдгар", "Мико"],
+    "Алли": ["Отис", "Мэг", "Кенджи"],
+    "Дамиан": ["Эмз", "Отис", "Булл"],
+    "Старр Нова": ["Вольт", "Грифф", "Гейл"],
+    "Болт": ["Гейл", "Демиан", "Шелли"],
+    "Глоуи": ["Грифф", "Диномайк", "Мортис"],
+    "Венди": ["Корделиус", "Эдгар", "Брок"],
+    "Зигги": ["Мортис", "Эдгар", "Мико"],
+    "Наиджа": ["Мортис", "Леон", "Эдгар"],
+    "Шейд": ["Мипл", "Кит", "Брок/Кольт/Фрэнк (раскрытие)"],
+    "Финкс": ["Кит", "Кенджи", "Дерилл"],
+    "Олли": ["Коллет", "Вольт", "Поко (с гаджетом катарсис)"],
+}
+
 ADMIN_COMMANDS_HELP = """
-🛠 /panel — открыть админ-панель с инлайн-кнопками (тексты, кнопки, карты, билды, пользователи, промокоды, настройки, админы) — то же самое, что команды ниже, но без набора текста.
+🛠 /panel — открыть админ-панель с инлайн-кнопками (тексты, кнопки, карты, билды, контры, пользователи, промокоды, настройки, админы) — то же самое, что команды ниже, но без набора текста.
 
 🗺 <b>Карты и билды</b>
 /addmap — добавить или обновить карту. Первая строка сообщения — название карты (по нему её ищут пользователи), всё что дальше — содержимое (пики); можно с форматированием, платными эмодзи и фото.
@@ -117,6 +212,11 @@ ADMIN_COMMANDS_HELP = """
 /delbuild Имя — удалить билд бойца, с подтверждением.
 /listmaps — список всех карт, которые сейчас есть в базе.
 /listbuilds — список всех билдов, которые сейчас есть в базе.
+
+🛡 <b>Контры бойцов</b>
+/addcounter — добавить или обновить контры бойца. Первая строка — имя бойца, дальше — список контрящих его бойцов; можно с форматированием и фото. База уже предзаполнена стандартным набором контр при первом запуске.
+/delcounter Имя — удалить контры бойца, с подтверждением.
+/listcounters — список всех бойцов, для которых заданы контры.
 
 👤 <b>Пользователи и подписки</b>
 /addsub id дней — выдать/продлить подписку вручную, минуя оплату.
@@ -190,6 +290,12 @@ CREATE TABLE IF NOT EXISTS maps (
     photo_file_id TEXT
 );
 CREATE TABLE IF NOT EXISTS builds (
+    search_key TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    photo_file_id TEXT
+);
+CREATE TABLE IF NOT EXISTS counters (
     search_key TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -277,6 +383,16 @@ async def init_db():
             await db.execute(
                 "INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (MAIN_ADMIN_ID,)
             )
+        cur = await db.execute("SELECT COUNT(*) FROM counters")
+        (counters_count,) = await cur.fetchone()
+        if counters_count == 0:
+            for name, counters in DEFAULT_COUNTERS.items():
+                content = "\n".join(f"🔻 {c}" for c in counters)
+                await db.execute(
+                    "INSERT OR IGNORE INTO counters (search_key, name, content, photo_file_id) "
+                    "VALUES (?, ?, ?, NULL)",
+                    (name.strip().lower(), name, content),
+                )
         await db.commit()
 
 
@@ -1190,6 +1306,32 @@ async def cmd_addbuild(message: Message):
     )
 
 
+@dp.message(Command("addcounter"), _is_admin_filter)
+async def cmd_addcounter(message: Message):
+    name, content_html, photo_file_id = _extract_name_and_content_html(message, "/addcounter")
+    if not name or (not content_html and not photo_file_id):
+        await reply(
+            message,
+            "Пришли одним сообщением (можно с фото):\nИмя бойца\nдальше — его контры "
+            "(текст, форматирование и платные эмодзи сохранятся)",
+        )
+        return
+    exists = await entry_exists("counters", name)
+    await set_pending_action(
+        message.from_user.id,
+        "addcounter",
+        {"name": name, "content_html": content_html, "photo_file_id": photo_file_id},
+    )
+    verb = "🔁 Обновить" if exists else "🔎 Предпросмотр"
+    action_label = "✅ Обновить" if exists else "✅ Опубликовать"
+    await reply(
+        message,
+        f"{verb} контры «{name}»:\n\n🛡 <b>{name}</b>\n\n{content_html}",
+        photo_file_id=photo_file_id,
+        reply_markup=action_confirm_kb(action_label, "❌ Отменить"),
+    )
+
+
 @dp.message(Command("delmap"), _is_admin_filter)
 async def cmd_delmap(message: Message):
     name = message.text[len("/delmap"):].strip()
@@ -1232,6 +1374,27 @@ async def cmd_delbuild(message: Message):
     )
 
 
+@dp.message(Command("delcounter"), _is_admin_filter)
+async def cmd_delcounter(message: Message):
+    name = message.text[len("/delcounter"):].strip()
+    if not name:
+        await reply(message, "Формат: /delcounter Имя бойца")
+        return
+    entry = await find_entry("counters", name)
+    if not entry:
+        await reply(message, f"Контры для «{name}» не найдены.")
+        return
+    await set_pending_action(
+        message.from_user.id, "delcounter", {"search_key": entry["search_key"], "name": entry["name"]}
+    )
+    await reply(
+        message,
+        f"🗑 Удалить контры для «{entry['name']}»?\n\n{entry['content']}",
+        photo_file_id=entry["photo_file_id"],
+        reply_markup=action_confirm_kb("🗑 Удалить", "↩️ Оставить"),
+    )
+
+
 async def _reply_entry_list(message: Message, table: str, title: str):
     names = await list_entry_names(table)
     if not names:
@@ -1259,6 +1422,11 @@ async def cmd_listbuilds(message: Message):
     await _reply_entry_list(message, "builds", "⚔️ Билды")
 
 
+@dp.message(Command("listcounters"), _is_admin_filter)
+async def cmd_listcounters(message: Message):
+    await _reply_entry_list(message, "counters", "🛡 Контры")
+
+
 @register_apply("addmap")
 async def _apply_addmap(admin_id, payload):
     await add_entry("maps", payload["name"], payload["content_html"], payload.get("photo_file_id"))
@@ -1271,6 +1439,12 @@ async def _apply_addbuild(admin_id, payload):
     return f"✅ Билд на «{payload['name']}» опубликован."
 
 
+@register_apply("addcounter")
+async def _apply_addcounter(admin_id, payload):
+    await add_entry("counters", payload["name"], payload["content_html"], payload.get("photo_file_id"))
+    return f"✅ Контры для «{payload['name']}» опубликованы."
+
+
 @register_apply("delmap")
 async def _apply_delmap(admin_id, payload):
     await delete_entry("maps", payload["search_key"])
@@ -1281,6 +1455,12 @@ async def _apply_delmap(admin_id, payload):
 async def _apply_delbuild(admin_id, payload):
     await delete_entry("builds", payload["search_key"])
     return f"✅ Билд «{payload['name']}» удалён."
+
+
+@register_apply("delcounter")
+async def _apply_delcounter(admin_id, payload):
+    await delete_entry("counters", payload["search_key"])
+    return f"✅ Контры «{payload['name']}» удалены."
 
 
 @dp.callback_query(F.data.startswith("actconfirm:"))
@@ -1625,6 +1805,7 @@ async def cb_confirm_broadcast(callback: CallbackQuery):
 async def cmd_stats(message: Message):
     top_maps = await top_queries("map", since_days=7)
     top_builds = await top_queries("build", since_days=7)
+    top_counters = await top_queries("counter", since_days=7)
     lines = ["📊 Топ запросов за неделю\n", "🗺 Карты:"]
     if top_maps:
         for i, (name, cnt) in enumerate(top_maps, 1):
@@ -1634,6 +1815,12 @@ async def cmd_stats(message: Message):
     lines.append("\n⚔️ Бойцы:")
     if top_builds:
         for i, (name, cnt) in enumerate(top_builds, 1):
+            lines.append(f"{i}. {name} — {cnt}")
+    else:
+        lines.append("нет данных")
+    lines.append("\n🛡 Контры:")
+    if top_counters:
+        for i, (name, cnt) in enumerate(top_counters, 1):
             lines.append(f"{i}. {name} — {cnt}")
     else:
         lines.append("нет данных")
@@ -2143,6 +2330,18 @@ BUTTON_DISPLAY_NAMES = {
 ENTRY_TABLES = {
     "maps": {"title": "🗺 Карты", "icon": "🗺", "empty": "Пока нет ни одной карты.", "add_cmd": "/addmap"},
     "builds": {"title": "⚔️ Билды", "icon": "⚔️", "empty": "Пока нет ни одного билда.", "add_cmd": "/addbuild"},
+    "counters": {
+        "title": "🛡 Контры",
+        "icon": "🛡",
+        "empty": "Пока нет ни одной записи с контрами.",
+        "add_cmd": "/addcounter",
+    },
+}
+
+ENTRY_DELETE_ACTIONS = {
+    "maps": ("delmap", "карту"),
+    "builds": ("delbuild", "билд"),
+    "counters": ("delcounter", "контры"),
 }
 
 
@@ -2152,6 +2351,7 @@ def panel_main_kb():
     kb.button(text="🔘 Кнопки", callback_data="panel:buttons", style="success")
     kb.button(text="🗺 Карты", callback_data="panel:list:maps:0", style="success")
     kb.button(text="⚔️ Билды", callback_data="panel:list:builds:0", style="success")
+    kb.button(text="🛡 Контры", callback_data="panel:list:counters:0", style="success")
     kb.button(text="👤 Пользователи", callback_data="panel:userspage:0", style="success")
     kb.button(text="🎟 Промокоды", callback_data="panel:promos", style="success")
     kb.button(text="⚙️ Настройки", callback_data="panel:settings", style="success")
@@ -2369,8 +2569,7 @@ async def cb_panel_itemdel(callback: CallbackQuery):
     if not entry:
         await callback.answer("Запись больше не существует", show_alert=True)
         return
-    action_type = "delmap" if table == "maps" else "delbuild"
-    label = "карту" if table == "maps" else "билд"
+    action_type, label = ENTRY_DELETE_ACTIONS[table]
     await set_pending_action(
         callback.from_user.id, action_type, {"search_key": entry["search_key"], "name": entry["name"]}
     )
@@ -2818,8 +3017,9 @@ async def handle_search(message: Message):
 
     map_entry = await find_entry("maps", query)
     build_entry = await find_entry("builds", query)
+    counter_entry = await find_entry("counters", query)
 
-    if not map_entry and not build_entry:
+    if not map_entry and not build_entry and not counter_entry:
         text = await get_setting("not_found_text")
         photo = await get_setting_photo("not_found_text")
         await reply(message, text, photo_file_id=photo)
@@ -2838,6 +3038,13 @@ async def handle_search(message: Message):
             message,
             f"⚔️ <b>{build_entry['name']}</b>\n\n{build_entry['content']}",
             photo_file_id=build_entry["photo_file_id"],
+        )
+    if counter_entry:
+        await log_query("counter", counter_entry["name"])
+        await reply(
+            message,
+            f"🛡 <b>Контры на {counter_entry['name']}</b>\n\n{counter_entry['content']}",
+            photo_file_id=counter_entry["photo_file_id"],
         )
 
 
