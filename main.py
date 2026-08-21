@@ -1342,6 +1342,7 @@ async def find_menu_kb():
 
 @dp.callback_query(F.data == "menu:search")
 async def cb_search(callback: CallbackQuery):
+    await clear_pending_input(callback.from_user.id)
     text = await get_setting("search_prompt_text")
     photo = await get_setting_photo("search_prompt_text")
     await reply(callback, text, photo_file_id=photo, reply_markup=await find_menu_kb())
@@ -1402,7 +1403,9 @@ async def receive_findtype_query(message: Message):
         await reply(message, text, photo_file_id=photo, reply_markup=back_to_search_kb())
         return
 
-    await clear_pending_input(user_id)
+    # pending_input остаётся "findtype:{table}" — пользователь может сразу
+    # написать следующее имя в той же категории, без повторного нажатия
+    # кнопки. Сессия завершается только по кнопке "◀️ В меню".
     await log_query(FIND_TYPE_LOG[table], entry["name"])
     await reply(
         message,
