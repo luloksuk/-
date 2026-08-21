@@ -1136,7 +1136,7 @@ class CleanupMiddleware(BaseMiddleware):
         # явно нажимает "◀️ В меню".
         is_flow_step = False
         if user_id and not is_start:
-            if is_message:
+            if is_message and not (event.text and event.text.startswith("/")):
                 pending = await get_pending_input(user_id)
                 is_flow_step = bool(pending and pending.startswith("findtype:"))
             elif isinstance(event, CallbackQuery):
@@ -1367,6 +1367,11 @@ async def cb_find_type(callback: CallbackQuery):
 
 
 async def _awaiting_findtype(message: Message):
+    # Команды (/panel, /admin и т.д.) не должны перехватываться поиском —
+    # иначе они молча проглатываются, пока активна сессия поиска, и не
+    # доходят до настоящих обработчиков команд.
+    if message.text and message.text.startswith("/"):
+        return False
     pending = await get_pending_input(message.from_user.id)
     return bool(pending) and pending.startswith("findtype:")
 
@@ -1377,7 +1382,7 @@ async def receive_findtype_query(message: Message):
     table = pending.split(":", 1)[1]
 
     query = message.text.strip()
-    if not query or query.startswith("/"):
+    if not query:
         return
 
     await ensure_user(message.from_user.id, message.from_user.username)
