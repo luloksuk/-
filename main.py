@@ -338,7 +338,8 @@ CREATE TABLE IF NOT EXISTS chat_state (
     user_id INTEGER PRIMARY KEY,
     welcome_msg_id INTEGER,
     last_user_msg_id INTEGER,
-    last_bot_msg_ids TEXT
+    last_bot_msg_ids TEXT,
+    search_flow_msg_ids TEXT
 );
 CREATE TABLE IF NOT EXISTS promo_codes (
     code TEXT PRIMARY KEY,
@@ -392,6 +393,7 @@ async def init_db():
         await _ensure_column(db, "users", "promo_cooldown_until", "TEXT")
         await _ensure_column(db, "maps", "photo_file_id", "TEXT")
         await _ensure_column(db, "builds", "photo_file_id", "TEXT")
+        await _ensure_column(db, "chat_state", "search_flow_msg_ids", "TEXT")
         await db.commit()
         for key, (_, _, default) in EDITABLE_TEXTS.items():
             await db.execute(
@@ -936,6 +938,27 @@ async def save_turn_state(user_id, last_user_msg_id, last_bot_msg_ids):
         await db.commit()
 
 
+async def get_search_flow_ids(user_id):
+    state = await get_chat_state(user_id)
+    if not state or not state["search_flow_msg_ids"]:
+        return []
+    try:
+        return json.loads(state["search_flow_msg_ids"])
+    except (TypeError, ValueError):
+        return []
+
+
+async def set_search_flow_ids(user_id, ids):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT INTO chat_state (user_id, welcome_msg_id, last_user_msg_id, last_bot_msg_ids, "
+            "search_flow_msg_ids) VALUES (?, NULL, NULL, NULL, ?) "
+            "ON CONFLICT(user_id) DO UPDATE SET search_flow_msg_ids = excluded.search_flow_msg_ids",
+            (user_id, json.dumps(ids)),
+        )
+        await db.commit()
+
+
 # ============================== KEYBOARDS ==============================
 
 async def main_menu_kb():
@@ -1108,9 +1131,30 @@ class CleanupMiddleware(BaseMiddleware):
         is_start = is_message and bool(event.text and event.text.startswith("/start"))
         is_payment_flow = is_message and bool(event.successful_payment)
 
+        # Раздел "найти карту/билд/контру" — переписка внутри него не чистится
+        # после каждого шага, а копится и удаляется разом, когда пользователь
+        # явно нажимает "◀️ В меню".
+        is_flow_step = False
+        if user_id and not is_start:
+            if is_message:
+                pending = await get_pending_input(user_id)
+                is_flow_step = bool(pending and pending.startswith("findtype:"))
+            elif isinstance(event, CallbackQuery):
+                is_flow_step = bool(event.data and event.data.startswith("menu:findtype:"))
+
         to_delete = []
         if user_id and not is_start:
             to_delete = await get_deletable_ids(user_id)
+            if is_flow_step:
+                flow_ids = await get_search_flow_ids(user_id)
+                flow_ids.extend(to_delete)
+                await set_search_flow_ids(user_id, flow_ids)
+                to_delete = []
+            else:
+                flow_ids = await get_search_flow_ids(user_id)
+                if flow_ids:
+                    to_delete.extend(flow_ids)
+                    await set_search_flow_ids(user_id, [])
 
         token = _track_ctx.set([])
         try:
@@ -1304,6 +1348,12 @@ async def cb_search(callback: CallbackQuery):
     await callback.answer()
 
 
+def back_to_search_kb():
+    kb = InlineKeyboardBuilder()
+    kb.button(text="◀️ В меню", callback_data="menu:search", style="primary")
+    return kb.as_markup()
+
+
 @dp.callback_query(F.data.startswith("menu:findtype:"))
 async def cb_find_type(callback: CallbackQuery):
     table = callback.data.split(":", 2)[2]
@@ -1311,7 +1361,7 @@ async def cb_find_type(callback: CallbackQuery):
         await callback.answer()
         return
     await set_pending_input(callback.from_user.id, f"findtype:{table}")
-    await reply(callback, FIND_TYPE_PROMPTS[table])
+    await reply(callback, FIND_TYPE_PROMPTS[table], reply_markup=back_to_search_kb())
     await callback.answer()
 
 
@@ -1347,11 +1397,16 @@ async def receive_findtype_query(message: Message):
     if not entry:
         text = await get_setting("not_found_text")
         photo = await get_setting_photo("not_found_text")
-        await reply(message, text, photo_file_id=photo)
+        await reply(message, text, photo_file_id=photo, reply_markup=back_to_search_kb())
         return
 
     await log_query(FIND_TYPE_LOG[table], entry["name"])
-    await reply(message, _format_entry_reply(table, entry), photo_file_id=entry["photo_file_id"])
+    await reply(
+        message,
+        _format_entry_reply(table, entry),
+        photo_file_id=entry["photo_file_id"],
+        reply_markup=back_to_search_kb(),
+    )
 
 
 @dp.callback_query(F.data == "menu:help")
