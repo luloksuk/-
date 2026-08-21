@@ -351,6 +351,26 @@ async def _ensure_column(db, table, column, coltype):
 
 async def init_db():
     async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Если в базе уже была таблица counters с другой структурой (например,
+        # от стороннего инструмента или прерванной миграции) — CREATE TABLE
+        # IF NOT EXISTS её не тронет и вставки будут падать. Убираем её с
+        # дороги, не удаляя данные, чтобы наша таблица создалась с нуля.
+        cur = await db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='counters'"
+        )
+        if await cur.fetchone():
+            cur = await db.execute("PRAGMA table_info(counters)")
+            cols = [row[1] for row in await cur.fetchall()]
+            if not {"search_key", "name", "content"}.issubset(cols):
+                legacy = await db.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='counters_legacy'"
+                )
+                if await legacy.fetchone():
+                    await db.execute("DROP TABLE counters")
+                else:
+                    await db.execute("ALTER TABLE counters RENAME TO counters_legacy")
+                await db.commit()
+
         await db.executescript(SCHEMA)
         # Миграции для баз, созданных более старой версией кода
         # (CREATE TABLE IF NOT EXISTS не добавляет новые столбцы в уже существующие таблицы).
