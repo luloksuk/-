@@ -105,6 +105,13 @@ BUTTON_LABELS = {
     "btn_referrals": ("setbtnref", "Пришли новое название кнопки рефералов.", "👥 Мои рефералы"),
     "btn_help": ("setbtnhelp", 'Пришли новое название кнопки "Как пользоваться".', "ℹ️ Как пользоваться"),
     "btn_promo": ("setbtnpromo", 'Пришли новое название кнопки "Ввести промокод".', "🎟 Ввести промокод"),
+    "btn_find_maps": ("setbtnfindmap", 'Пришли новое название кнопки "Найти карту".', "🗺 Найти карту"),
+    "btn_find_builds": ("setbtnfindbuild", 'Пришли новое название кнопки "Найти билд".', "⚔️ Найти билд"),
+    "btn_find_counters": (
+        "setbtnfindcounter",
+        'Пришли новое название кнопки "Найти контру".',
+        "🛡 Найти контру",
+    ),
 }
 
 # ---- бойцы и их контры (предзаполняется в базу при первом запуске) ----
@@ -264,6 +271,9 @@ ADMIN_COMMANDS_HELP = """
 /setbtnref — "Мои рефералы"
 /setbtnhelp — "Как пользоваться"
 /setbtnpromo — "Ввести промокод"
+/setbtnfindmap — "Найти карту"
+/setbtnfindbuild — "Найти билд"
+/setbtnfindcounter — "Найти контру"
 
 ℹ️ /admin — показать этот список
 """.strip()
@@ -1262,11 +1272,26 @@ def _format_entry_reply(table, entry):
     return f"🛡 <b>Контры на {entry['name']}</b>\n\n{entry['content']}"
 
 
-def find_menu_kb():
+async def find_menu_kb():
     kb = InlineKeyboardBuilder()
-    kb.button(text="🗺 Найти карту", callback_data="menu:findtype:maps", style="success")
-    kb.button(text="⚔️ Найти билд", callback_data="menu:findtype:builds", style="success")
-    kb.button(text="🛡 Найти контру", callback_data="menu:findtype:counters", style="success")
+    kb.button(
+        text=await get_setting("btn_find_maps"),
+        callback_data="menu:findtype:maps",
+        style="success",
+        icon_custom_emoji_id=await get_setting("btn_find_maps_icon") or None,
+    )
+    kb.button(
+        text=await get_setting("btn_find_builds"),
+        callback_data="menu:findtype:builds",
+        style="success",
+        icon_custom_emoji_id=await get_setting("btn_find_builds_icon") or None,
+    )
+    kb.button(
+        text=await get_setting("btn_find_counters"),
+        callback_data="menu:findtype:counters",
+        style="success",
+        icon_custom_emoji_id=await get_setting("btn_find_counters_icon") or None,
+    )
     kb.adjust(1)
     return kb.as_markup()
 
@@ -1275,7 +1300,7 @@ def find_menu_kb():
 async def cb_search(callback: CallbackQuery):
     text = await get_setting("search_prompt_text")
     photo = await get_setting_photo("search_prompt_text")
-    await reply(callback, text, photo_file_id=photo, reply_markup=find_menu_kb())
+    await reply(callback, text, photo_file_id=photo, reply_markup=await find_menu_kb())
     await callback.answer()
 
 
@@ -2421,6 +2446,9 @@ BUTTON_DISPLAY_NAMES = {
     "btn_referrals": "👥 Рефералы",
     "btn_help": "ℹ️ Помощь",
     "btn_promo": "🎟 Промокод",
+    "btn_find_maps": "🗺 Найти карту",
+    "btn_find_builds": "⚔️ Найти билд",
+    "btn_find_counters": "🛡 Найти контру",
 }
 
 ENTRY_TABLES = {
@@ -3081,49 +3109,6 @@ async def process_successful_payment(message: Message):
     template = await get_setting("payment_success_text")
     photo = await get_setting_photo("payment_success_text")
     await reply(message, template.format(days=days), photo_file_id=photo)
-
-
-# ---------- поиск (общий обработчик текста, регистрируем последним) ----------
-
-async def _not_pending_admin_input(message: Message):
-    if not await is_admin(message.from_user.id):
-        return True
-    pending = await get_pending_input(message.from_user.id)
-    return pending is None
-
-
-@dp.message(F.text, _not_pending_admin_input)
-async def handle_search(message: Message):
-    query = message.text.strip()
-    if not query or query.startswith("/"):
-        return
-
-    await ensure_user(message.from_user.id, message.from_user.username)
-    user_id = message.from_user.id
-    user = await get_user(user_id)
-
-    if await is_subscription_enabled() and user and not user["trial_used"] and not await is_admin(user_id):
-        await start_trial(user_id)
-
-    if not await has_access(user_id):
-        text = await get_setting("no_access_text")
-        photo = await get_setting_photo("no_access_text")
-        await reply(message, text, photo_file_id=photo, reply_markup=await buy_kb())
-        return
-
-    entries = {table: await find_entry(table, query) for table in FIND_TYPE_LOG}
-
-    if not any(entries.values()):
-        text = await get_setting("not_found_text")
-        photo = await get_setting_photo("not_found_text")
-        await reply(message, text, photo_file_id=photo)
-        return
-
-    for table, entry in entries.items():
-        if not entry:
-            continue
-        await log_query(FIND_TYPE_LOG[table], entry["name"])
-        await reply(message, _format_entry_reply(table, entry), photo_file_id=entry["photo_file_id"])
 
 
 # ============================== ФОНОВЫЕ ЗАДАЧИ / ЗАПУСК ==============================
