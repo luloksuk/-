@@ -1225,12 +1225,88 @@ async def cmd_start(message: Message):
     await set_welcome_msg_id(message.from_user.id, sent.message_id)
 
 
+FIND_TYPE_PROMPTS = {
+    "maps": "🗺 Напиши название карты, которую ищешь.",
+    "builds": "⚔️ Напиши имя бойца, чтобы посмотреть его билд.",
+    "counters": "🛡 Напиши имя бойца, чтобы посмотреть его контры.",
+}
+
+FIND_TYPE_LOG = {"maps": "map", "builds": "build", "counters": "counter"}
+
+
+def _format_entry_reply(table, entry):
+    if table == "maps":
+        return f"🗺 <b>{entry['name']}</b>\n\n{entry['content']}"
+    if table == "builds":
+        return f"⚔️ <b>{entry['name']}</b>\n\n{entry['content']}"
+    return f"🛡 <b>Контры на {entry['name']}</b>\n\n{entry['content']}"
+
+
+def find_menu_kb():
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🗺 Найти карту", callback_data="menu:findtype:maps", style="success")
+    kb.button(text="⚔️ Найти билд", callback_data="menu:findtype:builds", style="success")
+    kb.button(text="🛡 Найти контру", callback_data="menu:findtype:counters", style="success")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 @dp.callback_query(F.data == "menu:search")
 async def cb_search(callback: CallbackQuery):
     text = await get_setting("search_prompt_text")
     photo = await get_setting_photo("search_prompt_text")
-    await reply(callback, text, photo_file_id=photo)
+    await reply(callback, text, photo_file_id=photo, reply_markup=find_menu_kb())
     await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("menu:findtype:"))
+async def cb_find_type(callback: CallbackQuery):
+    table = callback.data.split(":", 2)[2]
+    if table not in FIND_TYPE_PROMPTS:
+        await callback.answer()
+        return
+    await set_pending_input(callback.from_user.id, f"findtype:{table}")
+    await reply(callback, FIND_TYPE_PROMPTS[table])
+    await callback.answer()
+
+
+async def _awaiting_findtype(message: Message):
+    pending = await get_pending_input(message.from_user.id)
+    return bool(pending) and pending.startswith("findtype:")
+
+
+@dp.message(F.text, _awaiting_findtype)
+async def receive_findtype_query(message: Message):
+    pending = await get_pending_input(message.from_user.id)
+    table = pending.split(":", 1)[1]
+    await clear_pending_input(message.from_user.id)
+
+    query = message.text.strip()
+    if not query or query.startswith("/"):
+        return
+
+    await ensure_user(message.from_user.id, message.from_user.username)
+    user_id = message.from_user.id
+    user = await get_user(user_id)
+
+    if await is_subscription_enabled() and user and not user["trial_used"] and not await is_admin(user_id):
+        await start_trial(user_id)
+
+    if not await has_access(user_id):
+        text = await get_setting("no_access_text")
+        photo = await get_setting_photo("no_access_text")
+        await reply(message, text, photo_file_id=photo, reply_markup=await buy_kb())
+        return
+
+    entry = await find_entry(table, query)
+    if not entry:
+        text = await get_setting("not_found_text")
+        photo = await get_setting_photo("not_found_text")
+        await reply(message, text, photo_file_id=photo)
+        return
+
+    await log_query(FIND_TYPE_LOG[table], entry["name"])
+    await reply(message, _format_entry_reply(table, entry), photo_file_id=entry["photo_file_id"])
 
 
 @dp.callback_query(F.data == "menu:help")
@@ -3015,37 +3091,19 @@ async def handle_search(message: Message):
         await reply(message, text, photo_file_id=photo, reply_markup=await buy_kb())
         return
 
-    map_entry = await find_entry("maps", query)
-    build_entry = await find_entry("builds", query)
-    counter_entry = await find_entry("counters", query)
+    entries = {table: await find_entry(table, query) for table in FIND_TYPE_LOG}
 
-    if not map_entry and not build_entry and not counter_entry:
+    if not any(entries.values()):
         text = await get_setting("not_found_text")
         photo = await get_setting_photo("not_found_text")
         await reply(message, text, photo_file_id=photo)
         return
 
-    if map_entry:
-        await log_query("map", map_entry["name"])
-        await reply(
-            message,
-            f"🗺 <b>{map_entry['name']}</b>\n\n{map_entry['content']}",
-            photo_file_id=map_entry["photo_file_id"],
-        )
-    if build_entry:
-        await log_query("build", build_entry["name"])
-        await reply(
-            message,
-            f"⚔️ <b>{build_entry['name']}</b>\n\n{build_entry['content']}",
-            photo_file_id=build_entry["photo_file_id"],
-        )
-    if counter_entry:
-        await log_query("counter", counter_entry["name"])
-        await reply(
-            message,
-            f"🛡 <b>Контры на {counter_entry['name']}</b>\n\n{counter_entry['content']}",
-            photo_file_id=counter_entry["photo_file_id"],
-        )
+    for table, entry in entries.items():
+        if not entry:
+            continue
+        await log_query(FIND_TYPE_LOG[table], entry["name"])
+        await reply(message, _format_entry_reply(table, entry), photo_file_id=entry["photo_file_id"])
 
 
 # ============================== ФОНОВЫЕ ЗАДАЧИ / ЗАПУСК ==============================
