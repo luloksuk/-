@@ -112,6 +112,7 @@ BUTTON_LABELS = {
         'Пришли новое название кнопки "Найти контру".',
         "🛡 Найти контру",
     ),
+    "btn_back_menu": ("setbtnbackmenu", 'Пришли новое название кнопки "В меню".', "◀️ В меню"),
 }
 
 # ---- бойцы и их контры (предзаполняется в базу при первом запуске) ----
@@ -274,6 +275,7 @@ ADMIN_COMMANDS_HELP = """
 /setbtnfindmap — "Найти карту"
 /setbtnfindbuild — "Найти билд"
 /setbtnfindcounter — "Найти контру"
+/setbtnbackmenu — "В меню" (кнопка возврата в разделах поиска и панели)
 
 ℹ️ /admin — показать этот список
 """.strip()
@@ -1355,9 +1357,14 @@ async def cb_search(callback: CallbackQuery):
     await callback.answer()
 
 
-def back_to_search_kb():
+async def back_to_search_kb():
     kb = InlineKeyboardBuilder()
-    kb.button(text="◀️ В меню", callback_data="menu:search", style="primary")
+    kb.button(
+        text=await get_setting("btn_back_menu"),
+        callback_data="menu:search",
+        style="primary",
+        icon_custom_emoji_id=await get_setting("btn_back_menu_icon") or None,
+    )
     return kb.as_markup()
 
 
@@ -1368,7 +1375,7 @@ async def cb_find_type(callback: CallbackQuery):
         await callback.answer()
         return
     await set_pending_input(callback.from_user.id, f"findtype:{table}")
-    await reply(callback, FIND_TYPE_PROMPTS[table], reply_markup=back_to_search_kb())
+    await reply(callback, FIND_TYPE_PROMPTS[table], reply_markup=await back_to_search_kb())
     await callback.answer()
 
 
@@ -1411,7 +1418,7 @@ async def receive_findtype_query(message: Message):
         # другое имя, не нажимая заново кнопку категории.
         text = await get_setting("not_found_text")
         photo = await get_setting_photo("not_found_text")
-        await reply(message, text, photo_file_id=photo, reply_markup=back_to_search_kb())
+        await reply(message, text, photo_file_id=photo, reply_markup=await back_to_search_kb())
         return
 
     # pending_input остаётся "findtype:{table}" — пользователь может сразу
@@ -1422,7 +1429,7 @@ async def receive_findtype_query(message: Message):
         message,
         _format_entry_reply(table, entry),
         photo_file_id=entry["photo_file_id"],
-        reply_markup=back_to_search_kb(),
+        reply_markup=await back_to_search_kb(),
     )
 
 
@@ -2521,6 +2528,7 @@ BUTTON_DISPLAY_NAMES = {
     "btn_find_maps": "🗺 Найти карту",
     "btn_find_builds": "⚔️ Найти билд",
     "btn_find_counters": "🛡 Найти контру",
+    "btn_back_menu": "◀️ В меню",
 }
 
 ENTRY_TABLES = {
@@ -2575,12 +2583,17 @@ async def cb_panel_main(callback: CallbackQuery):
 
 # ---- тексты ----
 
-def panel_texts_kb():
+async def panel_texts_kb():
     kb = InlineKeyboardBuilder()
     for key in EDITABLE_TEXTS:
         kb.button(text=TEXT_DISPLAY_NAMES.get(key, key), callback_data=f"panel:text:{key}", style="success")
     kb.adjust(1)
-    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    kb.row(InlineKeyboardButton(
+        text=await get_setting("btn_back_menu"),
+        callback_data="panel:main",
+        style="primary",
+        icon_custom_emoji_id=await get_setting("btn_back_menu_icon") or None,
+    ))
     return kb.as_markup()
 
 
@@ -2594,7 +2607,7 @@ def panel_text_view_kb(key):
 
 @dp.callback_query(F.data == "panel:texts", _is_admin_cb_filter)
 async def cb_panel_texts(callback: CallbackQuery):
-    await reply(callback, "📝 Редактируемые тексты — выбери, что изменить:", reply_markup=panel_texts_kb())
+    await reply(callback, "📝 Редактируемые тексты — выбери, что изменить:", reply_markup=await panel_texts_kb())
     await callback.answer()
 
 
@@ -2627,12 +2640,17 @@ async def cb_panel_text_edit(callback: CallbackQuery):
 
 # ---- кнопки меню ----
 
-def panel_buttons_kb():
+async def panel_buttons_kb():
     kb = InlineKeyboardBuilder()
     for key in BUTTON_LABELS:
         kb.button(text=BUTTON_DISPLAY_NAMES.get(key, key), callback_data=f"panel:btn:{key}", style="success")
     kb.adjust(1)
-    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    kb.row(InlineKeyboardButton(
+        text=await get_setting("btn_back_menu"),
+        callback_data="panel:main",
+        style="primary",
+        icon_custom_emoji_id=await get_setting("btn_back_menu_icon") or None,
+    ))
     return kb.as_markup()
 
 
@@ -2647,7 +2665,7 @@ def panel_btn_view_kb(key):
 @dp.callback_query(F.data == "panel:buttons", _is_admin_cb_filter)
 async def cb_panel_buttons(callback: CallbackQuery):
     await reply(
-        callback, "🔘 Названия кнопок меню — выбери, что изменить:", reply_markup=panel_buttons_kb()
+        callback, "🔘 Названия кнопок меню — выбери, что изменить:", reply_markup=await panel_buttons_kb()
     )
     await callback.answer()
 
@@ -2706,7 +2724,12 @@ async def _panel_entry_list_screen(table: str, offset: int):
         ))
     if nav:
         kb.row(*nav)
-    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    kb.row(InlineKeyboardButton(
+        text=await get_setting("btn_back_menu"),
+        callback_data="panel:main",
+        style="primary",
+        icon_custom_emoji_id=await get_setting("btn_back_menu_icon") or None,
+    ))
 
     if not total:
         text = f"{info['empty']} Добавить можно командой {info['add_cmd']}."
@@ -2780,7 +2803,7 @@ async def cb_panel_itemdel(callback: CallbackQuery):
 
 # ---- пользователи ----
 
-def panel_users_list_kb(users, offset, total):
+async def panel_users_list_kb(users, offset, total):
     kb = InlineKeyboardBuilder()
     for u in users:
         label = f"👤 {u['user_id']}" + (f" @{u['username']}" if u["username"] else "")
@@ -2800,7 +2823,12 @@ def panel_users_list_kb(users, offset, total):
         ))
     if nav:
         kb.row(*nav)
-    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    kb.row(InlineKeyboardButton(
+        text=await get_setting("btn_back_menu"),
+        callback_data="panel:main",
+        style="primary",
+        icon_custom_emoji_id=await get_setting("btn_back_menu_icon") or None,
+    ))
     return kb.as_markup()
 
 
@@ -2814,7 +2842,7 @@ async def cb_panel_userspage(callback: CallbackQuery):
         if users
         else "Пока нет пользователей."
     )
-    await reply(callback, text, reply_markup=panel_users_list_kb(users, offset, total))
+    await reply(callback, text, reply_markup=await panel_users_list_kb(users, offset, total))
     await callback.answer()
 
 
@@ -2866,7 +2894,12 @@ async def _panel_promos_screen():
         kb.button(text=label[:60], callback_data=f"panel:promoitem:{i}", style="success")
     kb.adjust(1)
     kb.row(InlineKeyboardButton(text="➕ Добавить промокод", callback_data="panel:promoadd", style="success"))
-    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    kb.row(InlineKeyboardButton(
+        text=await get_setting("btn_back_menu"),
+        callback_data="panel:main",
+        style="primary",
+        icon_custom_emoji_id=await get_setting("btn_back_menu_icon") or None,
+    ))
     text = "🎟 Промокоды — выбери, чтобы посмотреть или удалить:" if promos else "Промокодов пока нет."
     return text, kb.as_markup()
 
@@ -2943,7 +2976,12 @@ async def _panel_settings_screen():
         style="success",
     )
     kb.adjust(1)
-    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    kb.row(InlineKeyboardButton(
+        text=await get_setting("btn_back_menu"),
+        callback_data="panel:main",
+        style="primary",
+        icon_custom_emoji_id=await get_setting("btn_back_menu_icon") or None,
+    ))
     return text, kb.as_markup()
 
 
@@ -2980,7 +3018,7 @@ async def cb_panel_maint(callback: CallbackQuery):
 
 # ---- админы ----
 
-def panel_admins_kb(admin_ids):
+async def panel_admins_kb(admin_ids):
     kb = InlineKeyboardBuilder()
     for aid in admin_ids:
         if aid == MAIN_ADMIN_ID:
@@ -2988,7 +3026,12 @@ def panel_admins_kb(admin_ids):
         kb.button(text=f"🗑 {aid}", callback_data=f"panel:admindel:{aid}", style="danger")
     kb.adjust(1)
     kb.row(InlineKeyboardButton(text="➕ Добавить админа", callback_data="panel:adminadd", style="success"))
-    kb.row(InlineKeyboardButton(text="◀️ В меню", callback_data="panel:main", style="primary"))
+    kb.row(InlineKeyboardButton(
+        text=await get_setting("btn_back_menu"),
+        callback_data="panel:main",
+        style="primary",
+        icon_custom_emoji_id=await get_setting("btn_back_menu_icon") or None,
+    ))
     return kb.as_markup()
 
 
@@ -2999,7 +3042,7 @@ async def cb_panel_admins(callback: CallbackQuery):
     for aid in admin_ids:
         tag = " (главный)" if aid == MAIN_ADMIN_ID else ""
         lines.append(f"{aid}{tag}")
-    await reply(callback, "\n".join(lines), reply_markup=panel_admins_kb(admin_ids))
+    await reply(callback, "\n".join(lines), reply_markup=await panel_admins_kb(admin_ids))
     await callback.answer()
 
 
