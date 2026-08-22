@@ -1145,6 +1145,12 @@ class CleanupMiddleware(BaseMiddleware):
         to_delete = []
         if user_id and not is_start:
             to_delete = await get_deletable_ids(user_id)
+            if not is_message and isinstance(event, CallbackQuery) and event.data \
+                    and event.data.startswith("actconfirm:") and event.message:
+                # actconfirm редактирует своё же сообщение на "✅ Готово" — не
+                # даём автоочистке удалить его сразу же после редактирования.
+                own_id = event.message.message_id
+                to_delete = [mid for mid in to_delete if mid != own_id]
             if is_flow_step:
                 flow_ids = await get_search_flow_ids(user_id)
                 flow_ids.extend(to_delete)
